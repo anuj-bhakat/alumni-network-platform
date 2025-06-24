@@ -1,12 +1,16 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useLocation, useParams } from 'react-router-dom'; // Added useLocation
 import { supabase } from '../supabaseClient';
-import { toast } from 'react-toastify';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import { toast } from 'react-toastify';
 
 const ChatPage = () => {
-  const { id: receiverId } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation(); 
+  const { id: paramReceiverId } = useParams(); // In case there's a fallback
+
+  const [receiverId, setReceiverId] = useState(location.state?.receiverId || null); // Get receiverId from state
   const sender = JSON.parse(localStorage.getItem('alumniUser'));
   const senderId = sender?.id;
 
@@ -14,26 +18,37 @@ const ChatPage = () => {
   const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState('');
   const bottomRef = useRef(null);
-  const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const scrollContainerRef = useRef(null);
+  const channelRef = useRef(null);
 
-  // Fetch receiver info
+  // If paramReceiverId is available and not set yet, set it from URL and clean the URL
   useEffect(() => {
+    if (paramReceiverId && !receiverId) {
+      setReceiverId(paramReceiverId);
+      navigate('/chat', { replace: true }); // Clean URL if direct link was used
+    }
+  }, [paramReceiverId, receiverId, navigate]);
+
+  // Load receiver info
+  useEffect(() => {
+    if (!receiverId) return;
     supabase
       .from('users')
       .select('full_name, username')
       .eq('id', receiverId)
       .single()
       .then(({ data }) => {
-        if (data) setReceiverName(`${data.full_name} (@${data.username})`);
+        if (data) {
+          setReceiverName(`${data.full_name} (@${data.username})`);
+        }
       });
   }, [receiverId]);
 
-  // Load messages and listen for new ones
+  // Load and subscribe to messages
   useEffect(() => {
     if (!senderId || !receiverId) return;
 
-    // Fetch initial messages
     supabase
       .from('messages')
       .select('*')
@@ -43,23 +58,26 @@ const ChatPage = () => {
       .order('timestamp', { ascending: true })
       .then(({ data }) => {
         setMessages(data || []);
-        scrollToBottom('auto');
+        scrollToBottom();
       });
 
-    // Listen for new messages
-    const channel = supabase
-      .channel(`chat-${senderId}-${receiverId}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages' },
-        (payload) => {
-          const newMsg = payload.new;
-          const relevant =
-            (newMsg.sender_id === senderId && newMsg.receiver_id === receiverId) ||
-            (newMsg.sender_id === receiverId && newMsg.receiver_id === senderId);
-          if (relevant) {
+    const timer = setTimeout(() => {
+      channelRef.current = supabase
+        .channel(`chat-${senderId}-${receiverId}`)
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'messages' },
+          ({ new: newMsg }) => {
+            const isRelevant =
+              (newMsg.sender_id === senderId && newMsg.receiver_id === receiverId) ||
+              (newMsg.sender_id === receiverId && newMsg.receiver_id === senderId);
+
+            if (!isRelevant) return;
+
             setMessages((prev) => [...prev, newMsg]);
-            scrollToBottom('smooth');
+            const c = scrollContainerRef.current;
+            const atBottom = c.scrollHeight - c.scrollTop - c.clientHeight < 50;
+            if (atBottom) scrollToBottom();
 
             if (newMsg.sender_id !== senderId) {
               toast.info(`New message from ${receiverName.split(' ')[0]}`, {
@@ -68,47 +86,61 @@ const ChatPage = () => {
               });
             }
           }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe();
+    }, 500);
 
     return () => {
-      supabase.removeChannel(channel);
+      clearTimeout(timer);
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+      }
     };
   }, [receiverId, senderId, receiverName]);
 
-  // Scroll helper function
   const scrollToBottom = (behavior = 'smooth') => {
     bottomRef.current?.scrollIntoView({ behavior });
   };
 
   const handleSend = async () => {
     if (!message.trim()) return;
-    try {
-      await supabase.from('messages').insert([
-        { sender_id: senderId, receiver_id: receiverId, content: message.trim() },
-      ]);
-      setMessage('');
-      inputRef.current?.focus();
-    } catch (error) {
-      console.error('Failed to send message:', error.message);
-      toast.error('Failed to send message');
-    }
+    await supabase.from('messages').insert([
+      {
+        sender_id: senderId,
+        receiver_id: receiverId,
+        content: message.trim(),
+      },
+    ]);
+    setMessage('');
+    inputRef.current?.focus();
   };
+
+  const handleBack = () => {
+    navigate('/dashboard', { state: { defaultTab: 'chat' } });
+  };
+
 
   return (
     <div className="bg-gradient-to-br from-blue-50 to-purple-50 min-h-screen flex flex-col">
       <Navbar />
-      <div className="max-w-3xl w-full mx-auto mt-10 flex flex-col bg-white rounded-2xl shadow-xl flex-grow">
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-purple-200 flex-shrink-0">
-          <h2 className="text-2xl font-bold text-purple-800">{receiverName || 'Loading...'}</h2>
+
+      <div className="max-w-3xl w-full mx-auto mt-5 flex flex-col bg-white rounded-2xl shadow-xl flex-grow">
+        <div className="px-6 py-4 border-b border-purple-200 flex justify-between items-center">
+          <h2 className="text-2xl font-bold text-purple-800">
+            {receiverName || 'Loading...'}
+          </h2>
+          <button
+            onClick={handleBack}
+            className="px-4 py-2 bg-purple-200 text-purple-800 rounded hover:bg-purple-300 transition text-sm"
+          >
+            ← Back to Dashboard
+          </button>
         </div>
 
-        {/* Messages container - flex-grow and overflow-y-auto */}
         <div
+          ref={scrollContainerRef}
           className="flex-grow overflow-y-auto p-6 space-y-4 bg-purple-100"
-          style={{ minHeight: 0, maxHeight: 'calc(100vh - 280px)' }} // limit max height for scroll
+          style={{ minHeight: 0, maxHeight: 'calc(100vh - 330px)' }}
         >
           {messages.map((msg) => (
             <div
@@ -129,7 +161,6 @@ const ChatPage = () => {
           <div ref={bottomRef} />
         </div>
 
-        {/* Input area */}
         <div className="px-6 py-4 border-t border-purple-200 flex gap-3 flex-shrink-0">
           <input
             ref={inputRef}
@@ -148,6 +179,7 @@ const ChatPage = () => {
           </button>
         </div>
       </div>
+
       <Footer />
     </div>
   );

@@ -1,5 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 // Importing pages and components
 import Home from './pages/Home';
@@ -14,10 +16,12 @@ import AlumniList from './pages/AlumniList';
 import ChatPage from './pages/ChatPage';
 import Discover from './pages/Discover';
 import AlumniProfile from './pages/AlumniProfile';
+import RealtimeListener from './components/RealtimeListener';
 
 const App = () => {
   return (
     <Router>
+      <RealtimeListener />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/join" element={<Login />} />
@@ -31,6 +35,7 @@ const App = () => {
         {/* Chat Section  */}
         <Route path="/alumni" element={<AlumniList />} />
         <Route path="/chat/:id" element={<ChatPage />} />
+        <Route path="/chat" element={<ChatPage />} />
 
         {/* Discover  */}
         <Route path="/discover" element={<Discover />} />
@@ -39,6 +44,7 @@ const App = () => {
 
         <Route path="*" element={<NotFound />} />
       </Routes>
+      <ToastContainer position='top-right' autoClose={3000} />
     </Router>
   );
 };
