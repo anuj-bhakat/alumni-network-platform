@@ -95,7 +95,12 @@ const Home = () => {
       {/* Hero Section */}
       <section className="relative h-[90vh] bg-gradient-to-r from-blue-600 via-blue-500 to-blue-400 overflow-hidden">
         {/* Background Image */}
-        <div className="absolute inset-0 bg-fixed bg-cover bg-center opacity-30" style={{ backgroundImage: `url('https://images.unsplash.com/photo-1556740749-887f6717d7e4?crop=entropy&cs=tinysrgb&fit=max&ixid=M3wzNjkzMnwwfDF8c2VhcmNofDExfHxhbHVtbnklMjBuZXR3b3JrfGVufDB8fHx8fDE2ODMwNzExMzA&ixlib=rb-1.2.1&q=80&w=1080')` }}></div>
+        <div
+          className="absolute inset-0 bg-fixed bg-cover bg-center opacity-30"
+          style={{
+            backgroundImage: `url('https://images.unsplash.com/photo-1556740749-887f6717d7e4?crop=entropy&cs=tinysrgb&fit=max&ixid=M3wzNjkzMnwwfDF8c2VhcmNofDExfHxhbHVtbnklMjBuZXR3b3JrfGVufDB8fHx8fDE2ODMwNzExMzA&ixlib=rb-1.2.1&q=80&w=1080')`,
+          }}
+        ></div>
 
         {/* Blur Effect */}
         <div className="absolute inset-0 bg-black opacity-50"></div>
@@ -107,12 +112,12 @@ const Home = () => {
           <p className="text-white text-xl md:text-2xl mb-8 max-w-3xl mx-auto opacity-90">
             Discover new opportunities, rekindle old friendships, and celebrate the achievements of our alumni family.
           </p>
-          <a
-            href="/join"
+          <button
+            onClick={() => navigate('/join')}
             className="bg-white text-blue-700 font-semibold px-8 py-4 rounded-full shadow-lg transform transition-all hover:bg-blue-100 hover:scale-110 hover:shadow-xl"
           >
             Join the Network
-          </a>
+          </button>
         </div>
         <div className="absolute bottom-12 left-1/2 transform -translate-x-1/2 animate-bounce text-white text-3xl md:text-4xl">
           ↓
@@ -121,7 +126,12 @@ const Home = () => {
 
       {/* Recent Events Section */}
       <section className="py-20 px-6 md:px-12 bg-blue-100 relative">
-        <div className="absolute inset-0 bg-cover bg-center opacity-10" style={{ backgroundImage: `url('https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80')` }}></div>
+        <div
+          className="absolute inset-0 bg-cover bg-center opacity-10"
+          style={{
+            backgroundImage: `url('https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80')`,
+          }}
+        ></div>
         <div className="relative z-10 max-w-6xl mx-auto">
           <h2 className="text-3xl font-semibold text-blue-800 mb-10 text-center">Recent Events</h2>
           {eventsLoading ? (
@@ -132,8 +142,11 @@ const Home = () => {
             <p className="text-center text-blue-500 italic">No events found.</p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {events.map(event => (
-                <div key={event.id} className="bg-white shadow-lg rounded-lg p-6 text-center hover:scale-105 transition-transform duration-300">
+              {events.map((event) => (
+                <div
+                  key={event.id}
+                  className="bg-white shadow-lg rounded-lg p-6 text-center hover:scale-105 transition-transform duration-300"
+                >
                   <div className="text-4xl mb-4 text-blue-700">🎉</div>
                   <h3 className="text-xl font-bold text-blue-800 mb-1">{event.title}</h3>
                   <p className="text-sm text-blue-500 mb-2">📅 {formatDate(event.event_date)}</p>
@@ -153,7 +166,12 @@ const Home = () => {
 
       {/* Alumni Highlights Section */}
       <section className="py-20 px-6 md:px-12 bg-blue-200 relative">
-        <div className="absolute inset-0 bg-cover bg-center opacity-10" style={{ backgroundImage: `url('https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=1200&q=80')` }}></div>
+        <div
+          className="absolute inset-0 bg-cover bg-center opacity-10"
+          style={{
+            backgroundImage: `url('https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=1200&q=80')`,
+          }}
+        ></div>
         <div className="relative z-10 max-w-6xl mx-auto">
           <h2 className="text-3xl font-semibold text-blue-800 mb-10 text-center">Alumni Highlights</h2>
           {alumniLoading ? (
@@ -165,10 +183,15 @@ const Home = () => {
           ) : (
             <>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8 transition-opacity duration-700">
-                {displayedAlumni.map(alum => (
-                  <div key={alum.id} className="bg-white shadow-lg rounded-lg p-6 text-center hover:scale-105 transition-transform duration-300">
+                {displayedAlumni.map((alum) => (
+                  <div
+                    key={alum.id}
+                    className="bg-white shadow-lg rounded-lg p-6 text-center hover:scale-105 transition-transform duration-300"
+                  >
                     <img
-                      src={`https://ui-avatars.com/api/?name=${encodeURIComponent(alum.full_name)}&background=3B82F6&color=fff`}
+                      src={`https://ui-avatars.com/api/?name=${encodeURIComponent(
+                        alum.full_name
+                      )}&background=3B82F6&color=fff`}
                       alt="avatar"
                       className="w-16 h-16 mx-auto mb-4 rounded-full"
                     />
@@ -184,7 +207,9 @@ const Home = () => {
                   <button
                     key={idx}
                     onClick={() => setAlumniPage(idx)}
-                    className={`w-3 h-3 rounded-full ${alumniPage === idx ? 'bg-blue-600' : 'bg-blue-300'} transition-colors`}
+                    className={`w-3 h-3 rounded-full ${
+                      alumniPage === idx ? 'bg-blue-600' : 'bg-blue-300'
+                    } transition-colors`}
                   ></button>
                 ))}
               </div>
@@ -197,7 +222,9 @@ const Home = () => {
       <section className="py-20 px-6 md:px-12 bg-blue-900 text-white text-center">
         <div className="bg-white/10 backdrop-blur-md max-w-3xl mx-auto p-10 rounded-lg shadow-xl">
           <div className="mb-6 text-6xl text-blue-200">
-            <span role="img" aria-label="Chat" className="animate-pulse">💬</span>
+            <span role="img" aria-label="Chat" className="animate-pulse">
+              💬
+            </span>
           </div>
           <h2 className="text-3xl font-bold mb-4">Connect Instantly with Chat</h2>
           <p className="text-blue-200 mb-8">
