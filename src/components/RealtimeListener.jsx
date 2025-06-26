@@ -6,7 +6,6 @@ const RealtimeListener = () => {
   const channelRef = useRef(null);
 
   useEffect(() => {
-    // Read user info from localStorage inside useEffect to avoid stale data
     const stored = localStorage.getItem('alumniUser');
     if (!stored) {
       console.warn('[RealtimeListener] No user found in localStorage.');
@@ -28,7 +27,6 @@ const RealtimeListener = () => {
 
     console.log('[RealtimeListener] Setting up listener for user ID:', user.id);
 
-    // Setup realtime subscription for incoming messages for this user
     channelRef.current = supabase
       .channel(`global-message-listener-${user.id}`)
       .on(
@@ -46,11 +44,9 @@ const RealtimeListener = () => {
             return;
           }
 
-          // Ignore messages sent by self (avoid self notifications)
           if (newMsg.sender_id === user.id) return;
 
           try {
-            // Fetch sender info to display in toast
             const { data: senderData, error } = await supabase
               .from('users')
               .select('full_name')
@@ -58,11 +54,8 @@ const RealtimeListener = () => {
               .single();
 
             if (error || !senderData) {
-              console.warn('[RealtimeListener] Sender not found or error:', error);
-              toast.info(`📩 New message received`, {
-                position: 'top-right',
-                autoClose: 3000,
-              });
+              console.warn('[RealtimeListener] Sender not found:', error);
+              toast.info('📩 New message received');
               return;
             }
 

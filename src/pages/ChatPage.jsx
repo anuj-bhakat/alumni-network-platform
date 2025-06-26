@@ -1,36 +1,38 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useNavigate, useLocation, useParams } from 'react-router-dom'; // Added useLocation
+import { useNavigate, useLocation, useParams } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { toast } from 'react-toastify';
+import { format, isToday, isYesterday } from 'date-fns';
 
 const ChatPage = () => {
   const navigate = useNavigate();
   const location = useLocation(); 
-  const { id: paramReceiverId } = useParams(); // In case there's a fallback
+  const { id: paramReceiverId } = useParams();
 
-  const [receiverId, setReceiverId] = useState(location.state?.receiverId || null); // Get receiverId from state
+  const [receiverId, setReceiverId] = useState(location.state?.receiverId || null);
   const sender = JSON.parse(localStorage.getItem('alumniUser'));
   const senderId = sender?.id;
 
   const [receiverName, setReceiverName] = useState('');
   const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState('');
+  const [replyingTo, setReplyingTo] = useState(null);
+
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
   const scrollContainerRef = useRef(null);
   const channelRef = useRef(null);
+  const messageRefs = useRef({}); // to scroll to messages
 
-  // If paramReceiverId is available and not set yet, set it from URL and clean the URL
   useEffect(() => {
     if (paramReceiverId && !receiverId) {
       setReceiverId(paramReceiverId);
-      navigate('/chat', { replace: true }); // Clean URL if direct link was used
+      navigate('/chat', { replace: true });
     }
   }, [paramReceiverId, receiverId, navigate]);
 
-  // Load receiver info
   useEffect(() => {
     if (!receiverId) return;
     supabase
@@ -45,7 +47,6 @@ const ChatPage = () => {
       });
   }, [receiverId]);
 
-  // Load and subscribe to messages
   useEffect(() => {
     if (!senderId || !receiverId) return;
 
@@ -75,9 +76,7 @@ const ChatPage = () => {
             if (!isRelevant) return;
 
             setMessages((prev) => [...prev, newMsg]);
-            const c = scrollContainerRef.current;
-            const atBottom = c.scrollHeight - c.scrollTop - c.clientHeight < 50;
-            if (atBottom) scrollToBottom();
+            scrollToBottom();
 
             if (newMsg.sender_id !== senderId) {
               toast.info(`New message from ${receiverName.split(' ')[0]}`, {
@@ -99,32 +98,54 @@ const ChatPage = () => {
   }, [receiverId, senderId, receiverName]);
 
   const scrollToBottom = (behavior = 'smooth') => {
-    bottomRef.current?.scrollIntoView({ behavior });
+    setTimeout(() => {
+      bottomRef.current?.scrollIntoView({ behavior });
+    }, 50);
   };
 
   const handleSend = async () => {
     if (!message.trim()) return;
-    await supabase.from('messages').insert([
-      {
-        sender_id: senderId,
-        receiver_id: receiverId,
-        content: message.trim(),
-      },
-    ]);
+
+    await supabase.from('messages').insert([{
+      sender_id: senderId,
+      receiver_id: receiverId,
+      content: message.trim(),
+      reply_to: replyingTo?.id || null,
+    }]);
+
     setMessage('');
+    setReplyingTo(null);
     inputRef.current?.focus();
+    scrollToBottom();
   };
 
   const handleBack = () => {
     navigate('/dashboard', { state: { defaultTab: 'chat' } });
   };
 
+  const findMessageById = (id) => messages.find((msg) => msg.id === id);
+
+  const groupMessagesByDate = (messages) => {
+    const grouped = {};
+    messages.forEach((msg) => {
+      const date = new Date(msg.timestamp);
+      let key = format(date, 'yyyy-MM-dd');
+      if (isToday(date)) key = 'Today';
+      else if (isYesterday(date)) key = 'Yesterday';
+      else key = format(date, 'MMM dd, yyyy');
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(msg);
+    });
+    return grouped;
+  };
+
+  const groupedMessages = groupMessagesByDate(messages);
 
   return (
     <div className="bg-gradient-to-br from-blue-50 to-purple-50 min-h-screen flex flex-col">
       <Navbar />
 
-      <div className="max-w-3xl w-full mx-auto mt-5 flex flex-col bg-white rounded-2xl shadow-xl flex-grow">
+      <div className="max-w-3xl w-full mx-auto mt-10 flex flex-col bg-white rounded-2xl shadow-xl flex-grow">
         <div className="px-6 py-4 border-b border-purple-200 flex justify-between items-center">
           <h2 className="text-2xl font-bold text-purple-800">
             {receiverName || 'Loading...'}
@@ -139,27 +160,85 @@ const ChatPage = () => {
 
         <div
           ref={scrollContainerRef}
-          className="flex-grow overflow-y-auto p-6 space-y-4 bg-purple-100"
-          style={{ minHeight: 0, maxHeight: 'calc(100vh - 330px)' }}
+          className="flex-grow overflow-y-auto p-6 bg-purple-100"
+          style={{ minHeight: 0, maxHeight: 'calc(100vh - 260px)' }}
         >
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`flex ${msg.sender_id === senderId ? 'justify-end' : 'justify-start'}`}
-            >
-              <span
-                className={`max-w-xs px-4 py-2 rounded-lg ${
-                  msg.sender_id === senderId
-                    ? 'bg-purple-600 text-white rounded-tr-none'
-                    : 'bg-white text-gray-800 rounded-tl-none shadow'
-                }`}
-              >
-                {msg.content}
-              </span>
+          {Object.entries(groupedMessages).map(([date, msgs]) => (
+            <div key={date}>
+              <div className="text-center text-sm text-gray-500 mb-4">{date}</div>
+              {msgs.map((msg) => {
+                const isOwn = msg.sender_id === senderId;
+                const repliedTo = msg.reply_to ? findMessageById(msg.reply_to) : null;
+
+                return (
+                  <div
+                    key={msg.id}
+                    ref={(el) => (messageRefs.current[msg.id] = el)}
+                    className={`group relative flex ${
+                      isOwn ? 'justify-end' : 'justify-start'
+                    } mb-5`}
+                  >
+                    <div className="relative max-w-xs">
+                      {repliedTo && (
+                        <div
+                          className="text-sm text-gray-600 bg-purple-200 px-2 py-1 rounded mb-1 cursor-pointer text-[14px]"
+                          onClick={() => {
+                            const el = messageRefs.current[repliedTo.id];
+                            if (el) {
+                              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                              el.classList.add('ring', 'ring-purple-300');
+                              setTimeout(() => {
+                                el.classList.remove('ring', 'ring-purple-300');
+                              }, 1500);
+                            }
+                          }}
+                        >
+                          ↪ {repliedTo.content}
+                        </div>
+                      )}
+                      <span
+                        className={`block px-4 py-2 rounded-lg ${
+                          isOwn
+                            ? 'bg-purple-600 text-white rounded-tr-none'
+                            : 'bg-white text-gray-800 rounded-tl-none shadow'
+                        }`}
+                      >
+                        {msg.content}
+                        <div className="text-xs text-gray-300 mt-1 text-right">
+                          {format(new Date(msg.timestamp), 'hh:mm a')}
+                        </div>
+                      </span>
+                      <button
+                        onClick={() => {
+                          setReplyingTo(msg);
+                          inputRef.current?.focus();
+                        }}
+                        className="absolute right-0 top-0 mt-[-10px] mr-[-10px] text-xs text-black opacity-0 group-hover:opacity-100 transition"
+                      >
+                        Reply
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           ))}
           <div ref={bottomRef} />
         </div>
+
+        {replyingTo && (
+          <div className="px-6 py-2 bg-purple-100 border-t border-purple-300 text-sm text-purple-800 flex justify-between items-center">
+            <span className="text-[15px] font-medium">
+              Replying to: <em>{replyingTo.content}</em>
+            </span>
+            <button
+              onClick={() => setReplyingTo(null)}
+              className="text-xs text-purple-500 hover:text-purple-700"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
 
         <div className="px-6 py-4 border-t border-purple-200 flex gap-3 flex-shrink-0">
           <input
